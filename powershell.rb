@@ -29,9 +29,9 @@ class Metasploit3 < Msf::Post
 
     register_options(
       [
-        OptString.new( 'LOAD_MODULES',  [false, 'A list of powershell modules seperated by a columns, e.g. set LOAD_MODULES http://www.powershell.com/power1.ps1,http://www.powershell.com/power2.ps1,', ""]),
+        OptString.new( 'LOAD_MODULES',  [false, 'A list of powershell modules seperated by a comma, for example set LOAD_MODULES http://www.powershell.com/power1.ps1,http://www.powershell.com/power2.ps1,', ""]),
         OptString.new( 'RHOST',  [false, 'The IP of the system being exploited = rhost', ""]),
-        OptString.new( 'LPORT',  [false, 'The PORT of the PowerShell listener = lhost', "55555"])
+        OptString.new( 'LPORT',  [false, 'The PORT of the PowerShell listener = lpost', "55555"])
       ], self.class)
 
     register_advanced_options(
